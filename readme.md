@@ -1,153 +1,163 @@
-# Introduction
+# Toxic Spans Detection in Dutch
 
-#### SemEval 2021 Task 5:
+Toxic span detection is a development of binary toxicity detection which has garnered recent attention, in the form of shared tasks and datasets [@wulczynExMachinaPersonal2017; @zampieriSemEval2019TaskIdentifying2019]. Span detection asks systems to detect which specific series of words are toxic, irrespective of the text's overall toxicity. We introduce an ensemble-based approach to toxic span detection for Dutch messages, building on the work of teams at the recent SemEval 2021 Task 5 [@johnpavlopoulosSemEval2021Task2021]. We combine two task interpretations and five transformers models in one ensemble approach to achieve a character offset f1-score of **.7112** on Dutch messages. We also present a new dataset of annotated for span toxicity using messages from the AMiCA project on children's cyberbullying in Dutch [@vanHee_2018].
 
-Toxic Spans Detection was organised by John Pavlopoulos and colleagues, and described in detail in their task description paper. Competing teams were asked to develop systems capable of detecting spans of toxic text. Predictions were evaluated using a pairwise F1-score of toxic character offset predictions.
+Span level classification offers greater precision than document level, and in an application setting, facilitates effective downstream protocols. Systems are able to deal with toxicity on a word-by-word level, rather than at a document level that may contain spans of multiple topic. In turn, systems can act more precisely and with greater relevance to the toxicity of each word.
 
-#### Initial analysis
+#### Task Interpretation
 
-Initial analysis of the development data revealed that toxic spans were varied in content and not limited to single words. Though most examples contained single toxic words or phrases, others contained longer spans and complete sentences. With this in mind, we sort a strategy that combined longer span based detection with binary word classification.
+Multiple teams at SemEval task 5 recognised the need for a multi-faceted task interpretation that targeted both longer and shorter spans. illustrates this phenomena using data from the task itself [@johnpavlopoulosSemEval2021Task2021].
 
-#### Strategy
+We interpret the task in two ways: Firstly, through a [span-based](#span-based-prediction) approach where the source features are a message's word-token representations and the target is a binary value for each word, illustrated in . Secondly, a [word-based](#word-based-prediction) approach where the target is a single word's binary toxicity value and the source features are the words before and after that word, illustrated in . We then combine these predictions and use a Bidirectional LSTM to predict a final toxicity score for each word, based on the predictions of the component models.
 
-We combined models that used antithetical contexts, i.e. full sequences, and shorter ngram sequences before and after a given word. This approach is based on the hypothesis that their predictions would have a low correlation, and in turn, they would create ideal ensemble components.
+Combinations of word-based and span-based task interpretations were attempted by teams at Semeval Task 5 with varying degrees of success. By addressing potential annotation issues raised by authors, we improve model transferability, and in turn accuracy. outlines our analysis of model performance in relation to correlation, and its effect on Ensemble accuracy. In the we discuss the process of using prediction correlation for ensemble model design.
 
-#### Results
+#### Annotation Rationales {#anno-rat}
 
-The system described in this paper scored **0.6755** and ranked **26^th^**. We discovered that model correlation did play a factor in the accuracy of an ensemble approach; however, much of this performance increase was lost in transition to test data, where correlation increased on the most frequent type of examples. We analyse model performance and correlation in relation to textual features.
+Multiple teams described significantly lower f1 score's on test data during the shared task. Burtenshaw and Kestemont proposed that this could be related to underlying annotation rationales that were present or absent in testing. They proposed that one rationale selected only the most toxic words and another selected longer sequences, including stop-words and less toxic words. illustrates this phenomena by showing the annotated spans as orange text, and two potential rationales as blue and green underline. We mitigate this through detailed annotator instructions and a range of annotation tools for multiple rationales, described in .Motivation 
 
-#### Features
+This study falls within an overarching project to develop language classification tools for paediatric wards in Dutch-speaking Belgium. We are developing models and datasets targeted at improving safety within conversational systems used in paediatric wards. Therefore, the data we have developed is annotated by paediatric medics as part of a larger annotation study. Furthermore, our analysis targets performance and effectiveness in Dutch. Our goal is to transfer the same success teams at SemEval Task 5 showed on English data to Dutch data, and to compare performance across languages. We have two **hypotheses**: Firstly, that the multilingual base of component transformer models, combined with the linguistic similarity of the two languages, will lead to comparable performance in Dutch as English. Secondly, that clarifying annotation rationale with annotators, and in turn improving data distribution, will lead to an effective ensemble of word and span based task interpretations.
 
-Teams were supplied with development data consisting of 7939 text samples in varying lengths up to 1000 characters, and tested on 2000 text samples.
+# Data Collection
 
-# System overview
+## AMiCA Data
 
-![Model Diagram including all component models. Colours represent layer types and arrows represent training pipeline. ](figures/ensemble_plot.png)
+Van Hee et al. developed the AMiCA dataset through multiple methods; anonymous donation, simulation and parsing from the web. These channels come with various ethical restrictions, which Emmery et al. outline [@emmeryCurrentLimitationsCyberbullying2019]. We have limited this study to the simulated portion of the dataset, where Broeck et al. used a crowd-sourcing role play method to simulate instances of bullying [@broeck2014online]. 200 Participants ranging from age 14 to 18 were asked to study and behave as predefined bullying characters, within a social media chat environment [^1]. Each character was developed by researchers and based on archetypal bullying roles supported by literature. Table give the macro details of the data used.
+
+
+
+![Frequency of cyberbullying labels in AMiCA data](media/amica_frequency.png){#fig:amica-labels width="\\columnwidth"}
+
+
+
+## Manual Annotation {#manual-anno}
+
+Manual Annotation was performed on the AMiCA dataset of children's conversations in Dutch. As well as direct text annotation, we also used qualitative surveys to validate the annotation and reveal potential annotation rationals or shortcomings in task definition. Addressing the observations of researchers at SemEval 2021 Task 5 [@benburtenshawUAntwerpSemEval2021Task2021; @johnpavlopoulosSemEval2021Task2021] Annotators performed four simultaneous tasks: toxic span identification, multi-label span identification, document toxicity, and document multi-label toxicity. Within this study we focus solely on span identification, though we outline [Multi-label Toxicity](#related-multilabel) above and draw on multi-label annotations for error analysis in . The annotation process was implemented through a web interface and initiated via open call, employment, and a formal introduction. Due to the overarching [motivation](#motivation) of this project, we worked with paediatric medics. We principally targeted a uniform annotation rationale and gave annotators detailed examples of proper annotation to discuss and refer to.
+
+#### Task Setup
+
+The annotation process was performed by a group of 7 annotators that were formally inducted into the process, and given technical, practical, and psychological advice. For examples; they were shown how the technical interface worked, the difference between labels, and how they would be paid for their work. Furthermore, they were advised on the potentially toxic nature of the material they would read, and informed that they were free to stop at any point without ramification. All of the information was also compiled within an instructions sheet, that was embedded within the annotation environment. The web interface allowed annotators to flag possible rationales and challenging samples. Researchers then gave advice to annotators based on this feedback.
+
+#### Annotator Feedback
+
+Following the annotation task, annotators were asked to complete a qualitative survey within which four open-ended validation questions were asked. For example, 'How did you deal with queries relating to the task ? '. A valid answer referenced the introduction or instructions, whilst a invalid answer would reference an unavailable or irrelevant source of information. We intended to clarify and validate that they had completely understood the task, and that they were aware of the appropriate channels for advice. All annotators referenced the instructions, introduction, or contacting a researcher in their reply.
+
+#### Interannotator Agreement {#calculate-inter-annotator-agreement}
+
+was calculated through two discrete annotators where the largest set of overlapping instances by the same two annotators was used to calculate a **Cohen Kappa score of 0.616**. This shows that there was substantial agreement between annotators. We can compare this to a seminal toxicity annotation project, like that of Wulczyn et al, that scored 0.45 [@wulczynExMachinaPersonal2017]. We can also delve further into inter-annotator relations through multi-label use. reveals the Cohen Kappa between labels. We see that all six true label pairs (i.e. TOXIC & TOXIC) achieve a fair to substantial correlation, and that all false label pairs (i.e. INSULT & THREAT) do not correlate. This is evidence of valid agreement between annotators and a comparable understanding of toxicity.
+
+![Average correlation between annotators on sub-labels.](media/ann_label_corr.png){#fig:anno-corr width="\\columnwidth"}
+
+
+
+#### Compare Toxicity and Cyberbullying {#compare-toxicity-and-cyber-bullying}
+
+As a precursor to the main experiments, and to align this annotation process with Van Hee et al. and Emmery et al., we tested how cyberbullying spans act as a naive predictor of toxic spans using the combined labels for each class and F1 Score [@vanheeDetectionFinegrainedClassification2015; @emmeryCurrentLimitationsCyberbullying2019]. This process received an F1 score of 0.5278, showing that toxicity and cyberbullying may be partially aligned. Emmery and colleagues discuss the relationship between toxicity and cyberbullying on a detailed and semantic level.
+
+# System Overview
 
 #### Task Interpretations
 
-We used two types of component models; binary word level models and categorical span based models, and combined those in an LSTM network [@hochreiter1997long]. We used two word based models \[GLOV, BERT\] and three span based models \[ALBE, ROBE, ELEC\], the softmax output of all models were concatenated and supplied to an LSTM model \[ENSE\].
+We used two types of component model based on two task interpretations; [span-based prediction](#span-based-prediction) and [word-based prediction](#word-based-prediction). We used two word-based models \[GLOV, BERT\] and three span-based models \[ALBE, ROBE, ELEC\], the softmax output of all models were concatenated and supplied to an LSTM model \[ENSE\] [@hochreiter1997long].
 
 #### Motivation
 
-We intended for the word based models to learn local features in the tokens nearest the target word, and for the span based to learn the overall features that affected sub and multi word toxicity.
+We intended for the [word-based models](#word-based-prediction) to learn local features in the tokens nearest the target word, and for the [span-based](#span-based-prediction) to learn the overall features that affected sub and multi word toxicity.
 
-## Baselines {#Baseline-Models}
-
-To interpret the task we relied on the Spacy implemented baseline shared by the organizers and described in the task description paper [@johnpavlopoulosSemEval2021Task2021; @spacy]. The approach retrained the RoBERTa based `en_core_web_trf` model's `ner`, `trf_wordpiecer`, and `trf_tok2vec` components, producing f1-scores of 0.5630 on the development data and 0.6305 on test data. To Interpret the problem further, we implemented two simple baselines.
+## Baselines
 
 #### Lexical Lookup {#Lexical}
 
-Using a subset of samples from the development data, we created a toxic words list from all words within toxic spans, except for stop words [^1]. On the test data, we then classified words as toxic if they appeared within the aforementioned toxic words list. We then converted word offsets into character offsets. This approach achieved an F1-score of 0.4161 on the test data.
+Using a subset of samples from the development data, we created a toxic words list from all words within toxic spans, except for stop words. On a test portion of data, we then classified words as toxic if they appeared within the aforementioned toxic words list. This approach achieved an **F1-score of 0.3901**. As noted by Burtenshaw and Kestemont, the definition of the toxic words list significantly impacts the accuracy of the approach; depending on which $n$ samples are used, tokenisation method, and word definition [^2]. We compare the behaviour of this baseline on the AMiCA data and Semeval Toxic Span data in .
 
 #### SVM
 
-Using Term Frequency to Inverse Document Frequency we created two document vector representations of toxic and non-toxic spans. Using a Support Vector Machine, we predicted the probability that a word vector appeared within a toxic or non-toxic document [@salton1986introduction; @wuProbabilityEstimatesMulticlass]. We then used a binary threshold of 0.5 and class weights based on relative label frequency to predict whether a word was toxic. This approach achieved an F1-score of 0.5489 on the test data.
+Using Term Frequency Inverse Document Frequency, we created two document vector representations of toxic and non-toxic spans. Using a Support Vector Machine, we predicted the probability that a word vector appeared within a toxic or non-toxic document [@salton1986introduction; @wuProbabilityEstimatesMulticlass]. We then used a binary threshold of 0.5 and class weights based on relative label frequency to predict whether a word was toxic. This approach achieved an **F1-score of 0.6664** on the test data.
 
-## Component Models {#Component-Models}
+## Model Architecture
 
-### Span Prediction {#Span-Prediction}
+![Model diagram including all component models. Colours represent layer types and arrows represent training pipeline. ](media/ensemble_plot.png){#fig:method-overview width="\\columnwidth"}
 
-![Illustration of toxic span prediction based on complete sequence.](figures/span_example.png){#fig:ngram-example width="\\columnwidth"}
 
-Span prediction models used the complete sequence of words, up to a maximum length, to predict toxic character offsets. Sequences were represented as token reference indexes, described in section [4.1.0.1](#trans-process){reference-type="ref" reference="trans-process"}. The target sequence was processed from character offsets into categorical arrays for toxic, non-toxic, and padding tokens. [4.1.0.2](#target-labels){reference-type="ref" reference="target-labels"}.
+
+### Span-based Prediction
+
+Span-based prediction models used the complete sequence of word-token features, up to a maximum length, to predict toxic character offsets. Sequences were represented as token reference indexes, described in . The target sequence was represented as categorical arrays for toxic, non-toxic, and padding tokens. illustrates this approach.
 
 #### Transformer Models {#albert}
 
-[\[Electra\]]{#Electra label="Electra"}[\[RoBERTa\]]{#RoBERTa label="RoBERTa"}
+[\[Electra\]]{#Electra label="Electra"}[\[Roberta\]]{#Roberta label="Roberta"} We selected three pretrained transformer models (ALBERT, ROBERTA, ELECTRA) and fine-tuned them for this task with extra linear layers. We performed separate hyper-parameter optimisation for each model, detailed in . ALBERT is a lightweight implementation of a BERT model [@lanALBERTLiteBERT2020; @devlin-etal-2019-bert] that uses feature reduction to reduce training time. ELECTRA is a further development of the BERT model that pre-trains as a discriminator rather than a generator [@clarkELECTRAPRETRAININGTEXT2020]. ROBERTA develops the BERT model approach for robustness, [@liuRoBERTaRobustlyOptimized2019]. During development we found that these three transformer models achieved the highest f1-scores in relation to model correlation compared to alternatives. All models used the Adam optimizer [@kingmaAdamMethodStochastic2017].
 
-We selected three pretrained transformer models (ALBERT, RoBERTa, ELECTRA) and fine-tuned them for this task with extra linear layers. We performed separate hyper-parameter optimisation for each model, detailed in section [4.2.0.2](#hp-opt){reference-type="ref" reference="hp-opt"}. ALBERT is a lightweight implementation of a BERT model [@lanALBERTLiteBERT2020; @devlin-etal-2019-bert] that uses feature reduction to reduce training time. ELECTRA is a further development of the BERT model that pre-trains as a discriminator rather than a generator [@clarkELECTRAPRETRAININGTEXT2020]. RoBERTa develops the BERT model approach for robustness, [@liuRoBERTaRobustlyOptimized2019]. During development we found that these three transformer models achieved the highest f1-scores in relation model correlation compared to alternatives. All models used the Adam optimizer [@kingmaAdamMethodStochastic2017].
+### Word-based Prediction
 
-### Binary Word Prediction {#Binary-Prediction}
-
-![Illustration of toxic word prediction based on sequence before and after target word.](figures/ngram_example.png){#fig:ngram-example width="\\columnwidth"}
-
-The binary word level models treated the task as word toxicity prediction based on a sequences of words before and after the target word. Figure [3](#fig:ngram-example){reference-type="ref" reference="fig:ngram-example"} illustrates this approach. The target word toxicity was represented as a binary value. The sequence length before and after the target word was optimised for each model, and described in section [4.2.0.2](#hp-opt){reference-type="ref" reference="hp-opt"}.
+The word-based models treated the task as word toxicity prediction based on a sequence of words before and after the target word. illustrates this approach. The target word toxicity was represented as a binary value. The sequence length before and after the target word was optimised for each model, and described in .
 
 #### Siamese-LSTM with Glove Word Embeddings {#LSTM-Glove}
 
 A Siamese LSTM model used two networks based on separate glove embeddings of the sequence of words before and after the target words [@baoAttentiveSiameseLSTM2018; @baziotisDataStoriesSemEval2017Task2017].
 
-#### LSTM Finetuning BERT-base {#Bert-base}
+#### LSTM Finetuning Bert-base {#Bert-base}
 
-An LSTM model was trained based on the output of a BERT-base model. The words before and after the target word were used as model features, and the target word toxicity was represented as a binary value [@devlin-etal-2019-bert].
+An LSTM model was trained based on the output of a BERT-base model. The words before and after the target word were used as model features [@devlin-etal-2019-bert].
 
 ## Ensemble Model {#Ensemble-Model}
 
-A Bidirectional LSTM model was used to predict token toxicity based on tokenised word features and component model predictions. The model used transformer style feature representations to predict a sequence of categorical representations for token toxicity, as described in section [4.1.0.2](#target-labels){reference-type="ref" reference="target-labels"}. The ensemble model relied on five fold cross validation, as described in section [4.2.0.1](#cross-val){reference-type="ref" reference="cross-val"}.
-
-### Component model Predictions
-
-Component model predictions were concatenated together as categorical representations of labels (not toxic, toxic, padding : 0,1,2). Each model's 3 dimensional output (number of samples, sequence length, number of labels) was permuted into a 4 dimensional matrix (number of samples, sequence length, number of labels, number of models).
-
-# Experimental setup
-
-## Pre-Processing
-
-#### Tokenisation {#trans-process}
-
-Text sequences were tokenised into character sequences using a BERT tokenizer and excess characters were replaced with a `#` character, as shown in Figure [\[fig:bert-tokens\]](#fig:bert-tokens){reference-type="ref" reference="fig:bert-tokens"} [@devlin-etal-2019-bert]. Sequences were padded and truncated for uniformity to a length of 200 tokens. Longer sequences were handled separately, and predictions were combined in post-processing, described in section [4.4](#post){reference-type="ref" reference="post"}.
-
-------------------------- -------------------------------------------------------------- ----- ------- --------------------------------------- -------------------------------------------
-
-#### Target Label Representation {#target-labels}
-
-To best suit the component models, we used a target representation based on the character sequences from the BERT tokenizer. Each word-like sequence was given a label based on its `word-id`, and converted into categorical binary arrays, or one-hot vectors.
-
-## Training and Optimisation
-
-#### Cross Validation {#cross-val}
-
-We used stratified $k$ fold validation of the development data to train all models. After optimisation, each component model's predictions on the *test* portion of fold $k$ were added to the *train* portion of the other folds. Producing unseen training features for the ensemble model. This process avoids overfitting in component models, and facilitates training an ensemble model on the complete development data [@fushiki2011estimation; @pedregosa2011scikit].
-
-#### Hyper-Parameter Optimisation {#hp-opt}
-
-Model parameters were optimised for each fold of the development data and the best models were used by the ensemble model. Table [2](#tab:best-params){reference-type="ref" reference="tab:best-params"} shows the optimum parameters for each model used on the test data. We used Bayesian optimization for each fold of the development data to find optimum parameters [@snoekPracticalBayesianOptimization]. Component models were selected based on their f1-score and prediction correlation to other models.
-
-## Prediction
-
-To predict spans for submission, a version of each component model optimised for each fold of the development data was supplied the test data and their outputs were averaged. The ensemble model was then supplied component model predictions and tokenised text sequences.
-
-## Post-processing {#post}
-
-Model output was converted from 2 dimensional token-level categorical arrays ($n$ tokens, $n$ labels) into character offsets. The character offsets of each positively labeled token was then added to a list. The predictions of sequences that had been truncated during pre-processing, were combined and duplicates were removed.
+A Bidirectional LSTM model was used to predict token toxicity based word-token features and component model predictions. The model used transformer-style feature representations to predict a sequence of categorical representations for token toxicity, as described in . The ensemble model relied on five fold cross validation, as described in .
 
 # Results
 
-![results](figures/results_table.png)
+The best performing Ensemble model achieved f1 score of **0.7112**. Ensemble scores are also shown as macro averages of both labels `TOX` and `NOT`.
 
-The table reveals that the ensemble model achieved a similar score on both development and test data, while the ALBERT, ELECTRA, and baseline models improved in testing. Crucially, the $\widetilde5\%$ increase in f1-score from component models to ensemble, that we see on the development data, was not transferred to the test data.
+# Analysis
 
 ## Model Correlation {#model-corr}
 
-Figure [4](#fig:corr){reference-type="ref" reference="fig:corr"} reveals that the ensemble and ALBERT models have a high correlation, a logical outcome of their shared base layers; whilst word based models \[BERT, GLOV\] have a low correlation, reflecting their diverse interpretations.
+Ensemble approaches draw on the predictions of component models. An optimum ensemble will ignore the false prediction of one model and rely on the true prediction of another. In theory, this creates a robust and generalised implementation that out-performs any one component model. However, much of the ensemble model's potential lies in the diversity of component models' predictions. Model correlation is a straightforward way of revealing diversity in component model predictions.
 
-![Model Correlation calculated using a macro average f1-score](figures/corr.png){#fig:corr width="\\columnwidth"}
+![Model Correlation calculated using a macro average f1-score between model predictions.](media/model_corr.png){#fig:corr width="\\columnwidth"}
 
-## Error Analysis
 
-We performed error analysis to interpret the hypothesis that there are multiple annotation rationales; single toxic words, and longer offensive sentences, illustrated in Figure [\[fig:different-spans\]](#fig:different-spans){reference-type="ref" reference="fig:different-spans"}.
 
-#### Toxic Span Length
+reveals that the ensemble and ALBERT models have a high correlation, a logical outcome of their shared base layers; whilst word-based models \[BERT, GLOV\] have a low correlation, reflecting their diverse task interpretations.
 
-Figure [5](#fig:len){reference-type="ref" reference="fig:len"} reveals that the length of toxic spans had an impact on model performance. Models were less accurate at detecting longer spans on both development and test data. Furthermore, the impact of this effect on test data was decreased as there were fewer longer toxic spans.
+##  Error Analysis 
 
-![Model F1 score at $n$ tokens per toxic span. Bars show the frequency of $n$ tokens in development and test data. Shaded areas shows standard deviation of the f1-score for the ensemble model.](figures/performance_span_len.png){#fig:len width="\\columnwidth"}
 
-#### Stop Words in Toxic Spans
 
-The frequency of stop words in toxic spans also affected model performance. Figure [6](#fig:stop){reference-type="ref" reference="fig:stop"} reveals that, where present, spans with more stop words caused lower model accuracy.
+####  Length of Spans 
 
-![Model F1 score at $n$ stop words per toxic span, and $n$ stop word frequency.](figures/performance_stop_words.png){#fig:stop width="\\columnwidth"}
+reveals that the length of toxic spans had a positive impact on the span-based models' performance. This stands in contrast to Burtenshaw and Kestemont's use of a word-based approach, that was not more accurate on shorter spans during the shared task. In turn, the ensemble model replicated the span-based models' results at longer spans, and the word-based at shorter spans.
 
-#### Binary Token Level Evaluation {#word-based}
+![Model F1 score at $n$ tokens per toxic span. Bars show the frequency of $n$ tokens in development and test data. Shaded areas shows standard deviation of the f1-score for the ensemble model.](media/paediatric_performance_len.png){#fig:len width="\\columnwidth"}
 
-By using token level scoring we are able to reveal how the models perform on both positive and negative tokens. Here, the target labels are represented as binary arrays; 1 for toxic tokens and 0 for non-toxic. We can not expect these calculations to align with character offsets, due to variance in tokenisation and parsing.
 
-![Binary token level scores for precision, recall, and f1-score.](figures/word_f1_matrix.png)
 
-# Conclusion
+####  Stop word Frequency 
 
-Our initial hypothesis, that combining word based and span based approaches would yield a significant performance boost, did not stand up. We measured a $\widetilde5\%$ increase in f1-score on development data, but this was not transferred to test data. In future work, we would look to a strategy that incorporated model transferability in component model selection, with the intention of better handling fluctuations in annotation rationale. Drawing on recent work [@fortunaHowWellHate2021].
+The frequency of stop words in toxic spans affected model performance. reveals that, where present, spans with more stop words caused lower model accuracy.
 
-[^1]: The toxic words list was created from the first 5800 samples of the development data. We used Spacy tokenisation and English stop words list, and we removed space and character offsets from predictions.
+![Model F1 score at $n$ stop words per toxic span, and $n$ stop word frequency.](media/paediatric_performance_stop_words.png){#fig:stop width="\\columnwidth"}
+
+
+
+####  English Loan Word 
+
+use is common within the Dutch language, especially within slang and profanity where loan word use is a mainstay. Using Miller and colleagues loan word detection system, we split data into two subsets, one with and one without loan words [@10.1371/journal.pone.0242709]. We excluded samples with *possible* loan words. reveals a clear performance increase on all models except the baseline. This is most likely caused by the base Transformer models' English language proficiency.
+
+![Model F1 score on samples with and without English loan words.](media/paediatric_performance_loan_words.png){#fig:loan width="\\columnwidth"}
+
+
+
+####  Annotator Label Difficulty 
+
+was collected during annotation by allowing annotators to specify how challenging an annotation was on a scale of 0 to 3. 0 being obvious and 3 being complex or difficult. reveals the models' scores in relation to these annotations. Interestingly we can see that all models replicate this scale through their performance.
+
+![Model F1 scores at Annotator label Difficulty.](media/annotator_difficulty.png){#fig:diff width="\\columnwidth"}
+
+
+
+####  Sub classes of Toxicity 
+
+were also collected during annotation but was not used in model training. We can use these labels to analyse the performance of models on labels of each sub class. reveals the f1-score of each model on each sub label.
+
+![Model F1 scores on sub labels of toxicity.](media/multilabel_confusion.png){#fig:multi width="\\columnwidth"}
